@@ -1,9 +1,15 @@
 import random
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 import pygame
 
 from .constants import BACKGROUNDS, PIPES, PLAYERS
+from .utils import colorize_surface
+
+# how strongly pipes take on the current difficulty colour
+PIPE_COLOR_STRENGTH = 0.85
+
+PipePair = Tuple[pygame.Surface, pygame.Surface]
 
 
 class Images:
@@ -13,7 +19,7 @@ class Images:
     base: pygame.Surface
     background: pygame.Surface
     player: Tuple[pygame.Surface]
-    pipe: Tuple[pygame.Surface]
+    pipe: PipePair
 
     def __init__(self) -> None:
         self.numbers = list(
@@ -33,6 +39,7 @@ class Images:
         ).convert_alpha()
         # base (ground) sprite
         self.base = pygame.image.load("assets/sprites/base.png").convert_alpha()
+        self.colored_pipes: Dict[Tuple, PipePair] = {}
         self.randomize()
 
     def randomize(self):
@@ -57,3 +64,24 @@ class Images:
             ),
             pygame.image.load(PIPES[rand_pipe]).convert_alpha(),
         )
+        # base sprites changed, so previously recoloured copies are stale
+        self.colored_pipes.clear()
+
+    def pipes_colored(
+        self,
+        color: Tuple[int, int, int],
+        strength: float = PIPE_COLOR_STRENGTH,
+    ) -> PipePair:
+        """Upper/lower pipe sprites recoloured to ``color``.
+
+        Results are cached: one pair per difficulty colour keeps the hit
+        masks (which are memoized per surface) from being rebuilt for every
+        single pipe that spawns.
+        """
+        key = (tuple(color), round(strength, 3))
+        if key not in self.colored_pipes:
+            self.colored_pipes[key] = (
+                colorize_surface(self.pipe[0], color, strength),
+                colorize_surface(self.pipe[1], color, strength),
+            )
+        return self.colored_pipes[key]

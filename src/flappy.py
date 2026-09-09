@@ -6,15 +6,26 @@ from pygame.locals import K_ESCAPE, K_SPACE, K_UP, KEYDOWN, QUIT
 
 from .entities import (
     Background,
+    DifficultyHUD,
     Floor,
     GameOver,
+    HighScoresBoard,
     Pipes,
     Player,
     PlayerMode,
     Score,
     WelcomeMessage,
+    Wind,
 )
-from .utils import GameConfig, Images, Sounds, Window
+from .utils import (
+    Difficulty,
+    Fonts,
+    GameConfig,
+    HighScores,
+    Images,
+    Sounds,
+    Window,
+)
 
 
 class Flappy:
@@ -32,17 +43,26 @@ class Flappy:
             window=window,
             images=images,
             sounds=Sounds(),
+            fonts=Fonts(),
+            difficulty=Difficulty(),
+            high_scores=HighScores(),
         )
 
     async def start(self):
         while True:
+            # difficulty is reset first: entities read it while spawning
+            self.config.difficulty.reset()
             self.background = Background(self.config)
+            self.wind = Wind(self.config)
             self.floor = Floor(self.config)
             self.player = Player(self.config)
             self.welcome_message = WelcomeMessage(self.config)
             self.game_over_message = GameOver(self.config)
             self.pipes = Pipes(self.config)
             self.score = Score(self.config)
+            self.difficulty_hud = DifficultyHUD(self.config)
+            self.best_score = HighScoresBoard(self.config, compact=True)
+            self.high_scores_board = HighScoresBoard(self.config)
             await self.splash()
             await self.play()
             await self.game_over()
@@ -62,6 +82,7 @@ class Flappy:
             self.floor.tick()
             self.player.tick()
             self.welcome_message.tick()
+            self.best_score.tick()
 
             pygame.display.update()
             await asyncio.sleep(0)
@@ -84,15 +105,20 @@ class Flappy:
 
     async def play(self):
         self.score.reset()
+        self.config.high_scores.begin_round()
         self.player.set_mode(PlayerMode.NORMAL)
 
         while True:
             if self.player.collided(self.pipes, self.floor):
                 return
 
-            for i, pipe in enumerate(self.pipes.upper):
+            for pipe in self.pipes.upper:
                 if self.player.crossed(pipe):
                     self.score.add()
+
+            if self.config.difficulty.update(self.score.score):
+                self.config.sounds.swoosh.play()
+            self.config.difficulty.tick()
 
             for event in pygame.event.get():
                 self.check_quit_event(event)
@@ -100,10 +126,12 @@ class Flappy:
                     self.player.flap()
 
             self.background.tick()
+            self.wind.tick()
             self.floor.tick()
             self.pipes.tick()
             self.score.tick()
             self.player.tick()
+            self.difficulty_hud.tick()
 
             pygame.display.update()
             await asyncio.sleep(0)
@@ -115,6 +143,8 @@ class Flappy:
         self.player.set_mode(PlayerMode.CRASH)
         self.pipes.stop()
         self.floor.stop()
+        self.wind.stop()
+        self.config.high_scores.submit(self.score.score)
 
         while True:
             for event in pygame.event.get():
@@ -124,11 +154,15 @@ class Flappy:
                         return
 
             self.background.tick()
+            self.wind.tick()
             self.floor.tick()
             self.pipes.tick()
             self.score.tick()
             self.player.tick()
+            # the gauge stays up so the level reached is still readable
+            self.difficulty_hud.tick()
             self.game_over_message.tick()
+            self.high_scores_board.tick()
 
             self.config.tick()
             pygame.display.update()

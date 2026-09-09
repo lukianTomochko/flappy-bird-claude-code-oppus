@@ -8,7 +8,7 @@ from .entity import Entity
 class Pipe(Entity):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.vel_x = -5
+        self.vel_x = -self.config.difficulty.speed
 
     def draw(self) -> None:
         self.x += self.vel_x
@@ -24,6 +24,7 @@ class Pipes(Entity):
         self.pipe_gap = 120
         self.top = 0
         self.bottom = self.config.window.viewport_height
+        self.stopped = False
         self.upper = []
         self.lower = []
         self.spawn_initial_pipes()
@@ -32,12 +33,23 @@ class Pipes(Entity):
         if self.can_spawn_pipes():
             self.spawn_new_pipes()
         self.remove_old_pipes()
+        self.sync_speed()
 
         for up_pipe, low_pipe in zip(self.upper, self.lower):
             up_pipe.tick()
             low_pipe.tick()
 
+    def sync_speed(self) -> None:
+        """Difficulty owns the pipe speed, pipes just follow it."""
+        if self.stopped:
+            return
+
+        vel_x = -self.config.difficulty.speed
+        for pipe in self.upper + self.lower:
+            pipe.vel_x = vel_x
+
     def stop(self) -> None:
+        self.stopped = True
         for pipe in self.upper + self.lower:
             pipe.vel_x = 0
 
@@ -84,19 +96,24 @@ class Pipes(Entity):
 
         gap_y = random.randrange(0, int(base_y * 0.6 - self.pipe_gap))
         gap_y += int(base_y * 0.2)
-        pipe_height = self.config.images.pipe[0].get_height()
+        # pipes wear the colour of the difficulty level they spawned on, so
+        # the level change washes across the screen instead of snapping
+        upper_image, lower_image = self.config.images.pipes_colored(
+            self.config.difficulty.color
+        )
+        pipe_height = upper_image.get_height()
         pipe_x = self.config.window.width + 10
 
         upper_pipe = Pipe(
             self.config,
-            self.config.images.pipe[0],
+            upper_image,
             pipe_x,
             gap_y - pipe_height,
         )
 
         lower_pipe = Pipe(
             self.config,
-            self.config.images.pipe[1],
+            lower_image,
             pipe_x,
             gap_y + self.pipe_gap,
         )
