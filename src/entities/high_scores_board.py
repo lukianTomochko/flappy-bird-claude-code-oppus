@@ -1,3 +1,5 @@
+from typing import Optional
+
 import pygame
 
 from ..utils import GameConfig, render_outlined
@@ -29,6 +31,11 @@ class HighScoresBoard(Entity):
     def __init__(self, config: GameConfig, compact: bool = False) -> None:
         super().__init__(config)
         self.compact = compact
+        # the panel is static for the whole game over screen; it is rebuilt
+        # only when ``panel_key`` (the table, the highlight, the warning)
+        # changes, which happens once per submitted score
+        self.panel_cache: Optional[pygame.Surface] = None
+        self.panel_cache_key: Optional[tuple] = None
 
     def draw(self) -> None:
         if self.compact:
@@ -58,7 +65,25 @@ class HighScoresBoard(Entity):
     # ------------------------------------------------------------------
     # game over screen
     # ------------------------------------------------------------------
+    def panel_key(self) -> tuple:
+        """Everything the panel's pixels depend on."""
+        high_scores = self.config.high_scores
+        return (
+            tuple((entry["score"], entry["date"]) for entry in high_scores.top),
+            high_scores.last_rank,
+            high_scores.error,
+        )
+
     def draw_panel(self) -> None:
+        key = self.panel_key()
+        if self.panel_cache is None or key != self.panel_cache_key:
+            self.panel_cache = self.build_panel()
+            self.panel_cache_key = key
+
+        panel = self.panel_cache
+        self.config.screen.blit(panel, self.panel_position(panel.get_height()))
+
+    def build_panel(self) -> pygame.Surface:
         high_scores = self.config.high_scores
         rows = high_scores.top or [None]
         warning = high_scores.error
@@ -91,7 +116,7 @@ class HighScoresBoard(Entity):
                 y,
             )
 
-        self.config.screen.blit(panel, self.panel_position(height))
+        return panel
 
     def panel_position(self, height: int) -> tuple:
         window = self.config.window
@@ -115,9 +140,7 @@ class HighScoresBoard(Entity):
         if entry is None:
             self.blit_centered(
                 panel,
-                render_outlined(
-                    self.config.fonts.small, "no scores yet", RANK
-                ),
+                render_outlined(self.config.fonts.small, "no scores yet", RANK),
                 y,
             )
             return
@@ -133,9 +156,7 @@ class HighScoresBoard(Entity):
                 (PADDING - 6, y + 2),
             )
 
-        rank = render_outlined(
-            self.config.fonts.small, f"{index}.", row_color
-        )
+        rank = render_outlined(self.config.fonts.small, f"{index}.", row_color)
         score = render_outlined(
             self.config.fonts.medium, str(entry["score"]), score_color
         )
@@ -147,9 +168,7 @@ class HighScoresBoard(Entity):
 
         panel.blit(rank, (PADDING + 6, y + 2))
         panel.blit(score, (PADDING + 36, y - 2))
-        panel.blit(
-            date, (PANEL_WIDTH - PADDING - date.get_width(), y + 3)
-        )
+        panel.blit(date, (PANEL_WIDTH - PADDING - date.get_width(), y + 3))
 
     def blit_centered(self, panel, surface: pygame.Surface, y: int) -> None:
         panel.blit(surface, ((PANEL_WIDTH - surface.get_width()) / 2, y))

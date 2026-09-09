@@ -34,9 +34,11 @@ class Wind(Entity):
     def make_streak(self, onscreen: bool = False) -> Dict[str, float]:
         width = self.config.window.width
         return {
-            "x": random.uniform(0, width)
-            if onscreen
-            else width + random.uniform(0, width * 0.6),
+            "x": (
+                random.uniform(0, width)
+                if onscreen
+                else width + random.uniform(0, width * 0.6)
+            ),
             "y": random.uniform(4, self.config.window.viewport_height - 6),
             "length": random.uniform(12, 44),
             "factor": random.uniform(1.1, 2.0),

@@ -54,10 +54,10 @@ class Pipes(Entity):
             pipe.vel_x = 0
 
     def can_spawn_pipes(self) -> bool:
-        last = self.upper[-1]
-        if not last:
+        if not self.upper:
             return True
 
+        last = self.upper[-1]
         return self.config.window.width - (last.x + last.w) > last.w * 2.5
 
     def spawn_new_pipes(self):
@@ -66,15 +66,22 @@ class Pipes(Entity):
         self.upper.append(upper)
         self.lower.append(lower)
 
-    def remove_old_pipes(self):
-        # remove first pipe if its out of the screen
-        for pipe in self.upper:
-            if pipe.x < -pipe.w:
-                self.upper.remove(pipe)
+    def remove_old_pipes(self) -> None:
+        """Drops the pipes that have scrolled off the left of the screen.
 
-        for pipe in self.lower:
-            if pipe.x < -pipe.w:
-                self.lower.remove(pipe)
+        Both lists are rebuilt from one decision instead of being filtered
+        in place: removing from a list while iterating it skips the next
+        element, and if the two lists ever dropped different counts they
+        would desync, which ``tick``'s ``zip`` would silently hide.
+        """
+        keep = [
+            index for index, pipe in enumerate(self.upper) if pipe.x >= -pipe.w
+        ]
+        if len(keep) == len(self.upper):
+            return
+
+        self.upper = [self.upper[index] for index in keep]
+        self.lower = [self.lower[index] for index in keep]
 
     def spawn_initial_pipes(self):
         upper_1, lower_1 = self.make_random_pipes()

@@ -74,8 +74,17 @@ class HighScores:
             if entry:
                 entries.append(entry)
 
-        entries.sort(key=lambda entry: (-entry["score"], entry["date"]))
+        entries.sort(key=self.sort_key)
         return entries[: self.limit]
+
+    @staticmethod
+    def sort_key(entry: HighScoreEntry) -> Any:
+        """Best score first, oldest first among equal scores.
+
+        The sort is stable, so a freshly appended entry stays behind the
+        runs it merely tied with.
+        """
+        return (-entry["score"], entry["date"])
 
     @staticmethod
     def as_entry(item: Any) -> Optional[HighScoreEntry]:
@@ -105,8 +114,23 @@ class HighScores:
             return None
 
         entry["date"] = date.today().isoformat()
-        self.entries = self.sanitize(self.entries + [entry])
-        self.last_rank = self.entries.index(entry) + 1
+        # self.entries is already sanitized and entry came from as_entry,
+        # so merge them directly: re-sanitizing would replace entry with an
+        # equal copy and lose the identity the rank is looked up by
+        merged = self.entries + [entry]
+        merged.sort(key=self.sort_key)
+        self.entries = merged[: self.limit]
+        # by identity, not equality: list.index() matches dicts by value, so
+        # a run that tied an existing score reported that run's rank and
+        # highlighted its row instead of its own
+        self.last_rank = next(
+            (
+                index
+                for index, other in enumerate(self.entries, start=1)
+                if other is entry
+            ),
+            None,
+        )
         self.save()
         return self.last_rank
 

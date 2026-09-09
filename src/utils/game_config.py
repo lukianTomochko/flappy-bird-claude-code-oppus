@@ -9,6 +9,10 @@ from .images import Images
 from .sounds import Sounds
 from .window import Window
 
+# DEBUG values that switch the overlay on; anything else (including "0",
+# "false" and an empty variable) leaves it off
+DEBUG_ON = frozenset({"1", "true", "yes", "on"})
+
 
 class GameConfig:
     def __init__(
@@ -32,7 +36,7 @@ class GameConfig:
         self.fonts = fonts
         self.difficulty = difficulty
         self.high_scores = high_scores
-        self.debug = os.environ.get("DEBUG", False)
+        self.debug = os.environ.get("DEBUG", "").strip().lower() in DEBUG_ON
 
     def tick(self) -> None:
         self.clock.tick(self.fps)

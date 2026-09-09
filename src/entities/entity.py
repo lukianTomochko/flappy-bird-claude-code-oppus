@@ -60,8 +60,10 @@ class Entity:
 
     def tick(self) -> None:
         self.draw()
-        rect = self.rect
         if self.config.debug:
+            # ``rect`` allocates (and for Score re-derives the digit
+            # sprites), so it is only paid for when the overlay is on
+            rect = self.rect
             pygame.draw.rect(self.config.screen, (255, 0, 0), rect, 1)
             # write x and y at top of rect
             font = pygame.font.SysFont("Arial", 13, True)

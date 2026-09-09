@@ -1,10 +1,11 @@
 import random
-from typing import Dict, List, Tuple
+from typing import Dict, Iterable, List, Tuple
 
 import pygame
 
 from .constants import BACKGROUNDS, PIPES, PLAYERS
-from .utils import colorize_surface
+from .difficulty import LEVELS
+from .utils import colorize_surface, get_hit_mask
 
 # how strongly pipes take on the current difficulty colour
 PIPE_COLOR_STRENGTH = 0.85
@@ -66,6 +67,21 @@ class Images:
         )
         # base sprites changed, so previously recoloured copies are stale
         self.colored_pipes.clear()
+        self.warm_pipe_colors(level.color for level in LEVELS)
+
+    def warm_pipe_colors(self, colors: Iterable[Tuple[int, int, int]]) -> None:
+        """Builds every difficulty's pipes (and hit masks) up front.
+
+        Doing it lazily meant the first pipe of a new level paid two
+        colourisations plus two pure-python hit masks (~21 ms) inside a
+        single 33 ms frame, right under the level-up flash. Called from
+        ``randomize`` so the warm cache invariant survives a re-roll.
+        """
+        for color in colors:
+            for surface in self.pipes_colored(color):
+                # masks are memoized per surface; touch them here so the
+                # cost lands at load time and not mid-flight
+                get_hit_mask(surface)
 
     def pipes_colored(
         self,

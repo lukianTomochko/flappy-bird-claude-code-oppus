@@ -1,3 +1,5 @@
+from typing import List
+
 import pygame
 
 from ..utils import GameConfig
@@ -17,21 +19,32 @@ class Score(Entity):
         self.score += 1
         self.config.sounds.point.play()
 
+    def digit_images(self) -> List[pygame.Surface]:
+        """Digit sprites for the current score, left to right.
+
+        Single source for ``rect`` and ``draw``, which used to derive the
+        same list independently and could drift apart.
+        """
+        return [
+            self.config.images.numbers[int(digit)] for digit in str(self.score)
+        ]
+
+    def digits_origin(self, images: List[pygame.Surface]) -> float:
+        """Left edge that centres ``images`` horizontally."""
+        width = sum(image.get_width() for image in images)
+        return (self.config.window.width - width) / 2
+
     @property
     def rect(self) -> pygame.Rect:
-        score_digits = [int(x) for x in list(str(self.score))]
-        images = [self.config.images.numbers[digit] for digit in score_digits]
+        images = self.digit_images()
         w = sum(image.get_width() for image in images)
-        x = (self.config.window.width - w) / 2
         h = max(image.get_height() for image in images)
-        return pygame.Rect(x, self.y, w, h)
+        return pygame.Rect(self.digits_origin(images), self.y, w, h)
 
     def draw(self) -> None:
         """displays score in center of screen"""
-        score_digits = [int(x) for x in list(str(self.score))]
-        images = [self.config.images.numbers[digit] for digit in score_digits]
-        digits_width = sum(image.get_width() for image in images)
-        x_offset = (self.config.window.width - digits_width) / 2
+        images = self.digit_images()
+        x_offset = self.digits_origin(images)
 
         for image in images:
             self.config.screen.blit(image, (x_offset, self.y))

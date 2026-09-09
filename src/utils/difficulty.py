@@ -117,11 +117,3 @@ class Difficulty:
         if self.is_max_level:
             return 1.0
         return (self.pipes_passed % self.pipes_per_level) / self.pipes_per_level
-
-    @property
-    def pipes_to_next_level(self) -> int:
-        if self.is_max_level:
-            return 0
-        return self.pipes_per_level - (
-            self.pipes_passed % self.pipes_per_level
-        )
